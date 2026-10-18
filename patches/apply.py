@@ -67,6 +67,11 @@ def walk(o):
 walk(spec)
 write(f"{icon}/icon.json", json.dumps(spec, indent=2))
 
+# ---- the build is unsigned (AltStore signs it), so no provisioning profile can name an aps environment -----
+replace("build-system/Make/Make.py",
+        "    if codesigning_data.aps_environment is None:\n        print('Could not find a valid aps-environment entitlement in the provided provisioning profiles')\n        sys.exit(1)\n",
+        "    if codesigning_data.aps_environment is None:\n        codesigning_data.aps_environment = 'development'\n")
+
 # ---- later waves add more here (theme, ghost mode, kept deleted messages ...) --------------------------
 for extra in sorted((here / "features").glob("*.py")) if (here / "features").exists() else []:
     exec(compile(extra.read_text(encoding="utf-8"), str(extra), "exec"), {"src": src, "read": read, "write": write, "replace": replace, "failed": failed})
