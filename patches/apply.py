@@ -75,7 +75,12 @@ replace("build-system/Make/Make.py",
 # ---- the unsigned build has no extensions and no profiles: these are bazel flags, added to every build -----
 replace("build-system/Make/Make.py",
         "                '--features=swift.split_derived_files_generation',\n            ]\n\n        return combined_arguments\n",
-        "                '--features=swift.split_derived_files_generation',\n            ]\n\n        combined_arguments += ['--//Telegram:disableProvisioningProfiles', '--//Telegram:disableExtensions']\n        return combined_arguments\n")
+        "                '--features=swift.split_derived_files_generation',\n            ]\n\n        combined_arguments += ['--//Telegram:disableExtensions']\n        return combined_arguments\n")
+
+# ---- a stand-in provisioning profile for the app (rules_apple wants one for a device build; AltStore signs again) ---
+replace("build-system/Make/Make.py",
+        "    provisioning_profile_files = []\n    for file_name in os.listdir(provisioning_path):\n",
+        "    if not os.path.exists(provisioning_path + '/Telegram.mobileprovision'):\n        shutil.copyfile(os.path.join(base_path, 'build-system/fake-codesigning/profiles/Share.mobileprovision'), provisioning_path + '/Telegram.mobileprovision')\n\n    provisioning_profile_files = []\n    for file_name in os.listdir(provisioning_path):\n")
 
 # ---- later waves add more here (theme, ghost mode, kept deleted messages ...) --------------------------
 for extra in sorted((here / "features").glob("*.py")) if (here / "features").exists() else []:
