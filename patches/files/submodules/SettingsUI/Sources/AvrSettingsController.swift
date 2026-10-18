@@ -129,6 +129,9 @@ private func avrEntries() -> [AvrEntry] {
     toggle(2, "keep_deleted", AvrConfig.t("Сохранять удалённые", "Keep deleted messages"), AvrConfig.t("Сообщение, которое удалил собеседник, остаётся в чате с пометкой 🗑", "A message the other person deleted stays in the chat with a 🗑 mark"), true)
     toggle(2, "keep_edits", AvrConfig.t("Сохранять историю правок", "Keep the edit history"), AvrConfig.t("Долгое нажатие на изменённое сообщение → «История правок»", "Long press an edited message → \"Edit history\""), true)
 
+    header(3, AvrConfig.t("ПРОФИЛЬ", "PROFILE"))
+    toggle(3, "show_user_id", AvrConfig.t("ID в профиле", "ID in a profile"), AvrConfig.t("Строка «ID» в профиле человека, по нажатию копируется", "An \"ID\" row in a person's profile, tap to copy"), true)
+
     header(1, AvrConfig.t("ИИ", "AI"))
     toggle(1, "ai_on", AvrConfig.t("Включить ИИ", "Turn the AI on"), AvrConfig.t("Тексты уходят выбранному сервису по вашему ключу. Пока выключено, ничего не отправляется", "Texts go to the service you chose with your key. While off nothing is sent"), false)
     action(1, "ai_format", AvrConfig.t("Формат ключа", "Key format"), avrFormatName(AvrConfig.int("ai_format", 0)))

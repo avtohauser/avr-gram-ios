@@ -239,6 +239,38 @@ body = re.sub(r"(\b(?:buttonColor|accentTextColor|badgeBackgroundColor|accentCol
 if body != dark_text[cut:]:
     write(DARK, head + body)
 
+# ---- the ID row in a profile, and "in short" for long messages ------------------------------------------------
+replace("submodules/TelegramUI/Components/PeerInfo/PeerInfoScreen/Sources/PeerInfoProfileItems.swift",
+        "        if let cachedData = data.cachedData as? CachedUserData {\n            if let birthday = cachedData.birthday {\n",
+        """        if AvrConfig.bool("show_user_id", true) {
+            let avrUserId = String(user.id.id._internalGetInt64Value())
+            items[currentPeerInfoSection]!.append(PeerInfoScreenLabeledValueItem(id: 3999, label: "ID", text: avrUserId, textColor: .primary, action: { _, _ in
+                UIPasteboard.general.string = avrUserId
+            }, longTapAction: nil, contextAction: nil, requestLayout: { animated in
+                interaction.requestLayout(animated)
+            }))
+        }
+
+        if let cachedData = data.cachedData as? CachedUserData {
+            if let birthday = cachedData.birthday {
+""")
+replace("submodules/TelegramUI/Sources/ChatInterfaceStateContextMenus.swift",
+        "        let isCopyProtected = chatPresentationInterfaceState.copyProtectionEnabled || message.isCopyProtected()\n        if !messageText.isEmpty || richMessageMarkdown != nil",
+        """        if AvrAi.enabled, message.text.count > 200 {
+            actions.append(.action(ContextMenuActionItem(text: AvrConfig.t("ИИ: кратко", "AI: in short"), icon: { theme in
+                return generateTintedImage(image: UIImage(bundleImageName: "Chat/Context Menu/Copy"), color: theme.actionSheet.primaryTextColor)
+            }, action: { _, f in
+                f(.default)
+                let presentationData = context.sharedContext.currentPresentationData.with { $0 }
+                AvrAi.complete(system: "Summarize this chat message in one or two short lines, in its language. Say what is asked or promised and any dates or numbers. No preface.", user: message.text, maxTokens: 250, completion: { text, error in
+                    controllerInteraction.presentController(textAlertController(context: context, title: AvrConfig.t("Кратко", "In short"), text: (text ?? error ?? "-").trimmingCharacters(in: .whitespacesAndNewlines), actions: [TextAlertAction(type: .defaultAction, title: presentationData.strings.Common_OK, action: {})]), nil)
+                })
+            })))
+        }
+
+        let isCopyProtected = chatPresentationInterfaceState.copyProtectionEnabled || message.isCopyProtected()
+        if !messageText.isEmpty || richMessageMarkdown != nil""")
+
 # ---- later waves add more here (theme, ghost mode, kept deleted messages ...) --------------------------
 for extra in sorted((here / "features").glob("*.py")) if (here / "features").exists() else []:
     exec(compile(extra.read_text(encoding="utf-8"), str(extra), "exec"), {"src": src, "read": read, "write": write, "replace": replace, "failed": failed})
