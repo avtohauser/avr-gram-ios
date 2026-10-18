@@ -125,6 +125,10 @@ private func avrEntries() -> [AvrEntry] {
     info(0, AvrConfig.t("Работает на этом телефоне. Собеседники не узнают, что вы прочитали, печатаете или в сети.",
                         "Works on this phone. Others will not learn that you read, are typing or are online."))
 
+    header(2, AvrConfig.t("ПРИВАТНОСТЬ", "PRIVACY"))
+    toggle(2, "keep_deleted", AvrConfig.t("Сохранять удалённые", "Keep deleted messages"), AvrConfig.t("Сообщение, которое удалил собеседник, остаётся в чате с пометкой 🗑", "A message the other person deleted stays in the chat with a 🗑 mark"), true)
+    toggle(2, "keep_edits", AvrConfig.t("Сохранять историю правок", "Keep the edit history"), AvrConfig.t("Долгое нажатие на изменённое сообщение → «История правок»", "Long press an edited message → \"Edit history\""), true)
+
     header(1, AvrConfig.t("ИИ", "AI"))
     toggle(1, "ai_on", AvrConfig.t("Включить ИИ", "Turn the AI on"), AvrConfig.t("Тексты уходят выбранному сервису по вашему ключу. Пока выключено, ничего не отправляется", "Texts go to the service you chose with your key. While off nothing is sent"), false)
     action(1, "ai_format", AvrConfig.t("Формат ключа", "Key format"), avrFormatName(AvrConfig.int("ai_format", 0)))
@@ -133,6 +137,9 @@ private func avrEntries() -> [AvrEntry] {
     action(1, "ai_url", AvrConfig.t("Адрес API", "API address"), url.isEmpty ? AvrConfig.t("по умолчанию", "default") : url)
     let model = AvrConfig.string("ai_model")
     action(1, "ai_model", AvrConfig.t("Модель", "Model"), model.isEmpty ? AvrConfig.t("по умолчанию", "default") : model)
+    let note = AvrConfig.string("ai_note")
+    action(1, "ai_note", AvrConfig.t("О моём стиле", "About my style"), note.isEmpty ? AvrConfig.t("не задано", "not set") : AvrConfig.t("задано", "set"))
+    action(1, "ai_test", AvrConfig.t("Проверить подключение", "Test the connection"), "")
     info(1, AvrConfig.t("Подойдёт любой ключ: OpenAI, Anthropic, Gemini, OpenRouter, DeepSeek, Groq, свой сервер. Ключ хранится только на этом телефоне.",
                         "Any key works: OpenAI, Anthropic, Gemini, OpenRouter, DeepSeek, Groq, your own server. The key stays on this phone."))
 
@@ -187,6 +194,14 @@ public func avrSettingsController(context: AccountContext) -> ViewController {
                 promptFor(AvrConfig.t("Адрес API", "API address"), key: "ai_url", secret: false)
             case "ai_model":
                 promptFor(AvrConfig.t("Модель", "Model"), key: "ai_model", secret: false)
+            case "ai_note":
+                promptFor(AvrConfig.t("О моём стиле", "About my style"), key: "ai_note", secret: false)
+            case "ai_test":
+                AvrAi.complete(system: "Answer with one word.", user: "Say: ok", maxTokens: 20, completion: { text, error in
+                    let presentationData = context.sharedContext.currentPresentationData.with { $0 }
+                    let message = error ?? (AvrConfig.t("Работает: ", "Works: ") + (text ?? ""))
+                    presentImpl?(textAlertController(context: context, title: "avrgram", text: message, actions: [TextAlertAction(type: .defaultAction, title: presentationData.strings.Common_OK, action: {})]))
+                })
             default:
                 break
             }

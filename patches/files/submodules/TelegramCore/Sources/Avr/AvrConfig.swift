@@ -48,4 +48,8 @@ public enum AvrConfig {
     public static var ghostTyping: Bool { return bool("ghost_typing", false) }
     public static var ghostOnline: Bool { return bool("ghost_online", false) }
     public static var ghostStories: Bool { return bool("ghost_stories", false) }
+
+    // what is kept
+    public static var keepDeleted: Bool { return bool("keep_deleted", true) }
+    public static var keepEdits: Bool { return bool("keep_edits", true) }
 }

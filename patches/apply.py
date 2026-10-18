@@ -142,6 +142,81 @@ replace("submodules/TelegramUI/Components/PeerInfo/PeerInfoScreen/Sources/PeerIn
         "    items[.advanced]!.append(PeerInfoScreenDisclosureItem(id: 0, label: notificationsWarning",
         "    items[.advanced]!.append(PeerInfoScreenDisclosureItem(id: 90, text: \"avrgram\", icon: PresentationResourcesSettings.appearance, action: {\n        interaction.openSettings(.avrgram)\n    }))\n    items[.advanced]!.append(PeerInfoScreenDisclosureItem(id: 0, label: notificationsWarning")
 
+# ---- kept deleted messages and edit history ----------------------------------------------------------
+UTILS = "submodules/TelegramCore/Sources/State/AccountStateManagementUtils.swift"
+replace(UTILS,
+        "            case let .DeleteMessages(ids):\n                _internal_deleteMessages(transaction: transaction, mediaBox: mediaBox, ids: ids, manualAddMessageThreadStatsDifference: { id, add, remove in\n                    addMessageThreadStatsDifference(threadKey: id, remove: remove, addedMessagePeer: nil, addedMessageId: nil, isOutgoing: false)\n                })\n",
+        "            case let .DeleteMessages(ids):\n                if AvrConfig.keepDeleted {\n                    AvrDeleted.keep(transaction: transaction, ids: ids)\n                } else {\n                    _internal_deleteMessages(transaction: transaction, mediaBox: mediaBox, ids: ids, manualAddMessageThreadStatsDifference: { id, add, remove in\n                        addMessageThreadStatsDifference(threadKey: id, remove: remove, addedMessagePeer: nil, addedMessageId: nil, isOutgoing: false)\n                    })\n                }\n")
+replace(UTILS,
+        "            case let .EditMessage(id, message):\n                var generatedEvent: (reactionAuthor: Peer, reaction: MessageReaction.Reaction, message: Message, timestamp: Int32)?\n                transaction.updateMessage(id, update: { previousMessage in\n",
+        "            case let .EditMessage(id, message):\n                var generatedEvent: (reactionAuthor: Peer, reaction: MessageReaction.Reaction, message: Message, timestamp: Int32)?\n                transaction.updateMessage(id, update: { previousMessage in\n                    AvrEdits.record(id: id, previousText: previousMessage.text, previousDate: previousMessage.timestamp, newText: message.text)\n")
+replace("submodules/TelegramUI/Sources/ChatInterfaceStateContextMenus.swift",
+        "        let isCopyProtected = chatPresentationInterfaceState.copyProtectionEnabled || message.isCopyProtected()\n        if !messageText.isEmpty || richMessageMarkdown != nil",
+        "        if AvrConfig.keepEdits, !AvrEdits.history(id: message.id).isEmpty {\n            actions.append(.action(ContextMenuActionItem(text: AvrConfig.t(\"История правок\", \"Edit history\"), icon: { theme in\n                return generateTintedImage(image: UIImage(bundleImageName: \"Chat/Context Menu/Copy\"), color: theme.actionSheet.primaryTextColor)\n            }, action: { _, f in\n                f(.default)\n                let presentationData = context.sharedContext.currentPresentationData.with { $0 }\n                controllerInteraction.presentController(textAlertController(context: context, title: AvrConfig.t(\"История правок\", \"Edit history\"), text: AvrEdits.text(id: message.id), actions: [TextAlertAction(type: .defaultAction, title: presentationData.strings.Common_OK, action: {})]), nil)\n            })))\n        }\n\n        let isCopyProtected = chatPresentationInterfaceState.copyProtectionEnabled || message.isCopyProtected()\n        if !messageText.isEmpty || richMessageMarkdown != nil")
+
+# ---- AI actions in the message menu, and the calendar usage strings ------------------------------------------
+replace("Telegram/BUILD",
+        "    <key>NSCameraUsageDescription</key>\n    <string>We need this so that you can take and share photos and videos.</string>\n",
+        "    <key>NSCalendarsUsageDescription</key>\n    <string>avrgram adds the plans it finds in your chats to your calendar.</string>\n    <key>NSCalendarsFullAccessUsageDescription</key>\n    <string>avrgram adds the plans it finds in your chats to your calendar.</string>\n    <key>NSCameraUsageDescription</key>\n    <string>We need this so that you can take and share photos and videos.</string>\n")
+replace("submodules/TelegramUI/Sources/ChatInterfaceStateContextMenus.swift",
+        "        let isCopyProtected = chatPresentationInterfaceState.copyProtectionEnabled || message.isCopyProtected()\n        if !messageText.isEmpty || richMessageMarkdown != nil",
+        """        if AvrAi.enabled, !message.text.isEmpty {
+            actions.append(.action(ContextMenuActionItem(text: AvrConfig.t("ИИ: варианты ответа", "AI: reply options"), icon: { theme in
+                return generateTintedImage(image: UIImage(bundleImageName: "Chat/Context Menu/Reply"), color: theme.actionSheet.primaryTextColor)
+            }, action: { _, f in
+                f(.default)
+                let presentationData = context.sharedContext.currentPresentationData.with { $0 }
+                AvrAi.replyOptions(message: message.text, completion: { options, error in
+                    guard let options = options, !options.isEmpty else {
+                        controllerInteraction.presentController(textAlertController(context: context, title: "avrgram", text: error ?? "-", actions: [TextAlertAction(type: .defaultAction, title: presentationData.strings.Common_OK, action: {})]), nil)
+                        return
+                    }
+                    var listing = ""
+                    var buttons: [TextAlertAction] = []
+                    for (index, option) in options.prefix(3).enumerated() {
+                        listing += "\\(index + 1). \\(option)\\n\\n"
+                        buttons.append(TextAlertAction(type: .defaultAction, title: "\\(index + 1)", action: {
+                            interfaceInteraction.updateTextInputStateAndMode({ _, inputMode in
+                                return (ChatTextInputState(inputText: NSAttributedString(string: option)), inputMode)
+                            })
+                        }))
+                    }
+                    buttons.append(TextAlertAction(type: .genericAction, title: presentationData.strings.Common_Cancel, action: {}))
+                    controllerInteraction.presentController(textAlertController(context: context, title: AvrConfig.t("Варианты ответа", "Reply options"), text: listing.trimmingCharacters(in: .whitespacesAndNewlines), actions: buttons, actionLayout: .vertical), nil)
+                })
+            })))
+            actions.append(.action(ContextMenuActionItem(text: AvrConfig.t("В календарь (ИИ)", "To the calendar (AI)"), icon: { theme in
+                return generateTintedImage(image: UIImage(bundleImageName: "Chat/Context Menu/Copy"), color: theme.actionSheet.primaryTextColor)
+            }, action: { _, f in
+                f(.default)
+                let presentationData = context.sharedContext.currentPresentationData.with { $0 }
+                let ok = TextAlertAction(type: .defaultAction, title: presentationData.strings.Common_OK, action: {})
+                AvrAi.plan(message: message.text, completion: { plan, error in
+                    guard let plan = plan else {
+                        controllerInteraction.presentController(textAlertController(context: context, title: "avrgram", text: error ?? "-", actions: [ok]), nil)
+                        return
+                    }
+                    let formatter = DateFormatter()
+                    formatter.dateStyle = .medium
+                    formatter.timeStyle = plan.allDay ? .none : .short
+                    let summary = plan.title + "\\n" + formatter.string(from: plan.start) + (plan.place.isEmpty ? "" : "\\n" + plan.place)
+                    controllerInteraction.presentController(textAlertController(context: context, title: AvrConfig.t("Добавить в календарь?", "Add to the calendar?"), text: summary, actions: [
+                        TextAlertAction(type: .defaultAction, title: AvrConfig.t("Добавить", "Add"), action: {
+                            AvrAi.addToCalendar(plan: plan, note: message.text, completion: { saved, saveError in
+                                if !saved {
+                                    controllerInteraction.presentController(textAlertController(context: context, title: "avrgram", text: saveError ?? "-", actions: [ok]), nil)
+                                }
+                            })
+                        }),
+                        TextAlertAction(type: .genericAction, title: presentationData.strings.Common_Cancel, action: {})
+                    ]), nil)
+                })
+            })))
+        }
+
+        let isCopyProtected = chatPresentationInterfaceState.copyProtectionEnabled || message.isCopyProtected()
+        if !messageText.isEmpty || richMessageMarkdown != nil""")
+
 # ---- later waves add more here (theme, ghost mode, kept deleted messages ...) --------------------------
 for extra in sorted((here / "features").glob("*.py")) if (here / "features").exists() else []:
     exec(compile(extra.read_text(encoding="utf-8"), str(extra), "exec"), {"src": src, "read": read, "write": write, "replace": replace, "failed": failed})
