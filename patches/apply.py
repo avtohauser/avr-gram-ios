@@ -82,6 +82,13 @@ replace("build-system/Make/Make.py",
         "    provisioning_profile_files = []\n    for file_name in os.listdir(provisioning_path):\n",
         "    if not os.path.exists(provisioning_path + '/Telegram.mobileprovision'):\n        shutil.copyfile(os.path.join(base_path, 'build-system/fake-codesigning/profiles/Share.mobileprovision'), provisioning_path + '/Telegram.mobileprovision')\n\n    provisioning_profile_files = []\n    for file_name in os.listdir(provisioning_path):\n")
 
+# ---- the stand-in profile does not name our app id or entitlements: do not compare them -------------------
+plisttool = "build-system/bazel-rules/rules_apple/tools/plisttool/plisttool.py"
+if (src / plisttool).exists():
+    replace(plisttool,
+            "    self._validation_mode = self.options.get('validation_mode', 'error')",
+            "    self._validation_mode = 'skip'  # avrgram: unsigned build, AltStore signs it")
+
 # ---- later waves add more here (theme, ghost mode, kept deleted messages ...) --------------------------
 for extra in sorted((here / "features").glob("*.py")) if (here / "features").exists() else []:
     exec(compile(extra.read_text(encoding="utf-8"), str(extra), "exec"), {"src": src, "read": read, "write": write, "replace": replace, "failed": failed})
