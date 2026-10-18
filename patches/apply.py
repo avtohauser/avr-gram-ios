@@ -217,6 +217,28 @@ replace("submodules/TelegramUI/Sources/ChatInterfaceStateContextMenus.swift",
         let isCopyProtected = chatPresentationInterfaceState.copyProtectionEnabled || message.isCopyProtected()
         if !messageText.isEmpty || richMessageMarkdown != nil""")
 
+# ---- AVR Void: the Night theme turned into the ultra-dark avr theme (near-black teal surfaces, pink accent) ----
+DARK = "submodules/TelegramPresentationData/Sources/DefaultDarkPresentationTheme.swift"
+dark_text = read(DARK)
+cut = dark_text.index("public func makeDefaultDarkPresentationTheme(")
+head, body = dark_text[:cut], dark_text[cut:]
+surfaces = {
+    "0x1c1c1d": "0x0A1214", "0x1C1C1D": "0x0A1214",
+    "0x1f1f1f": "0x0C1618", "0x1F1F1F": "0x0C1618",
+    "0x272728": "0x0F1A1D",
+    "0x1d1d1d": "0x050A0B", "0x1D1D1D": "0x050A0B",
+    "0x121212": "0x050A0B",
+    "0x1b1b1b": "0x080E10", "0x1B1B1B": "0x080E10",
+    "0x2a2a2a": "0x142226",
+    "0x0f0f0f": "0x000000", "0x0F0F0F": "0x000000",
+    "0x545458": "0x1F3236",
+}
+for old_hex, new_hex in surfaces.items():
+    body = body.replace("UIColor(rgb: " + old_hex, "UIColor(rgb: " + new_hex)
+body = re.sub(r"(\b(?:buttonColor|accentTextColor|badgeBackgroundColor|accentColor|startButtonColor|itemAccentColor|panelControlAccentColor|controlAccentColor|linkTextColor)\s*:\s*UIColor\(rgb: )0xffffff", r"\g<1>0xF2A5C3", body)
+if body != dark_text[cut:]:
+    write(DARK, head + body)
+
 # ---- later waves add more here (theme, ghost mode, kept deleted messages ...) --------------------------
 for extra in sorted((here / "features").glob("*.py")) if (here / "features").exists() else []:
     exec(compile(extra.read_text(encoding="utf-8"), str(extra), "exec"), {"src": src, "read": read, "write": write, "replace": replace, "failed": failed})
