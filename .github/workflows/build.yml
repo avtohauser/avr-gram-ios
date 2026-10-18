@@ -66,11 +66,10 @@ jobs:
           cd telegram
           python3 build-system/Make/Make.py \
             --cacheDir="$HOME/telegram-bazel-cache" \
+            --bazelArguments="--//Telegram:disableProvisioningProfiles --//Telegram:disableExtensions" \
             build \
             --configurationPath=../config.json \
             --codesigningInformationPath=build-system/fake-codesigning \
-            --disableProvisioningProfiles \
-            --disableExtensions \
             --buildNumber=$((100000 + ${{ github.run_number }})) \
             --configuration=release_arm64
 

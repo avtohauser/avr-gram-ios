@@ -43,13 +43,11 @@ write(BUILD, text)
 
 # ---- the icon: the avr star on a dark violet disc, in the place of the paper plane ---------------------
 icon = "Telegram/Telegram-iOS/Telegram.icon"
-star = ("M50 2 C53 30 70 47 98 50 C70 53 53 70 50 98 C47 70 30 53 2 50 C30 47 47 30 50 2Z")
+mark = (here / "avrgram-mark.svgfrag").read_text(encoding="utf-8")
 svg = ('<?xml version="1.0" encoding="UTF-8"?>\n'
        '<svg width="1024px" height="1024px" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg">\n'
        '    <title>Plane</title>\n'
-       '    <g id="Plane" stroke="none" fill="none" fill-rule="nonzero">\n'
-       f'        <path fill="#FFFFFF" transform="translate(512 512) scale(4.9) translate(-50 -50)" d="{star}"/>\n'
-       '    </g>\n</svg>\n')
+       '    <svg x="0" y="0" width="1024" height="1024" viewBox="30 30 372 372">\n' + mark + '\n    </svg>\n</svg>\n')
 write(f"{icon}/Assets/Plane.svg", svg)
 spec = json.loads(read(f"{icon}/icon.json"))
 
@@ -58,7 +56,7 @@ def walk(o):
     if isinstance(o, dict):
         for k, v in list(o.items()):
             if k == "linear-gradient":
-                o[k] = ["display-p3:0.36,0.31,0.80,1.00000", "srgb:0.04,0.03,0.10,1.00000"]
+                o[k] = ["display-p3:0.07,0.30,0.32,1.00000", "srgb:0.03,0.20,0.22,1.00000"]
             else:
                 walk(v)
     elif isinstance(o, list):
