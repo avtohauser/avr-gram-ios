@@ -1,0 +1,96 @@
+name: build-ios
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Telegram-iOS tag to build"
+        default: "release-13.0.0"
+jobs:
+  build:
+    runs-on: macos-26
+    timeout-minutes: 355
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Xcode
+        run: |
+          sudo xcode-select -s /Applications/Xcode_26.6.app
+          xcodebuild -version
+          df -h /
+
+      - name: Get Telegram-iOS
+        run: |
+          git clone --depth 1 --branch "${{ inputs.tag }}" --recursive --shallow-submodules -j6 \
+            https://github.com/TelegramMessenger/Telegram-iOS.git telegram
+          cat telegram/versions.json
+
+      - name: Apply the avrgram changes
+        run: python3 patches/apply.py telegram
+
+      - name: Build configuration
+        env:
+          API_ID: ${{ secrets.TG_API_ID }}
+          API_HASH: ${{ secrets.TG_API_HASH }}
+        run: |
+          python3 - <<'EOF'
+          import json, os
+          cfg = {
+              "bundle_id": "space.avthsr.gram",
+              "api_id": os.environ["API_ID"],
+              "api_hash": os.environ["API_HASH"],
+              "team_id": "AVRGRAM000",
+              "app_center_id": "0",
+              "is_internal_build": "true",
+              "is_appstore_build": "false",
+              "appstore_id": "0",
+              "app_specific_url_scheme": "tg",
+              "premium_iap_product_id": "",
+              "enable_siri": False,
+              "enable_icloud": False,
+          }
+          json.dump(cfg, open("config.json", "w"), indent=2)
+          EOF
+
+      - name: Restore the build cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/telegram-bazel-cache
+          key: bazel-${{ inputs.tag }}-${{ github.run_id }}
+          restore-keys: |
+            bazel-${{ inputs.tag }}-
+
+      - name: Build
+        id: build
+        timeout-minutes: 320
+        run: |
+          cd telegram
+          python3 build-system/Make/Make.py \
+            --cacheDir="$HOME/telegram-bazel-cache" \
+            build \
+            --configurationPath=../config.json \
+            --codesigningInformationPath=build-system/fake-codesigning \
+            --disableProvisioningProfiles \
+            --disableExtensions \
+            --buildNumber=$((100000 + ${{ github.run_number }})) \
+            --configuration=release_arm64
+
+      - name: Save the build cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: ~/telegram-bazel-cache
+          key: bazel-${{ inputs.tag }}-${{ github.run_id }}
+
+      - name: Collect the IPA
+        run: |
+          mkdir -p out
+          find telegram -name "*.ipa" -not -path "*/node_modules/*" | head -5
+          IPA=$(find telegram -name "Telegram.ipa" | head -1)
+          cp "$IPA" out/avrgram-unsigned.ipa
+          ls -l out
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: avrgram-ipa
+          path: out/avrgram-unsigned.ipa
+          retention-days: 14
