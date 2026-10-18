@@ -1,0 +1,17 @@
+name: probe
+on: workflow_dispatch
+jobs:
+  probe:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-26, macos-15, macos-15-xlarge]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - run: |
+          sw_vers
+          uname -m
+          ls /Applications | grep -i xcode || true
+          xcodebuild -version || true
+          df -h / | tail -1
+          sysctl -n hw.ncpu hw.memsize
