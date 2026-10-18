@@ -72,6 +72,11 @@ replace("build-system/Make/Make.py",
         "    if codesigning_data.aps_environment is None:\n        print('Could not find a valid aps-environment entitlement in the provided provisioning profiles')\n        sys.exit(1)\n",
         "    if codesigning_data.aps_environment is None:\n        codesigning_data.aps_environment = 'development'\n")
 
+# ---- the unsigned build has no extensions and no profiles: these are bazel flags, added to every build -----
+replace("build-system/Make/Make.py",
+        "                '--features=swift.split_derived_files_generation',\n            ]\n\n        return combined_arguments\n",
+        "                '--features=swift.split_derived_files_generation',\n            ]\n\n        combined_arguments += ['--//Telegram:disableProvisioningProfiles', '--//Telegram:disableExtensions']\n        return combined_arguments\n")
+
 # ---- later waves add more here (theme, ghost mode, kept deleted messages ...) --------------------------
 for extra in sorted((here / "features").glob("*.py")) if (here / "features").exists() else []:
     exec(compile(extra.read_text(encoding="utf-8"), str(extra), "exec"), {"src": src, "read": read, "write": write, "replace": replace, "failed": failed})
