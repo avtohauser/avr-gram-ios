@@ -75,7 +75,7 @@ replace("build-system/Make/Make.py",
 # ---- the unsigned build has no extensions and no profiles: these are bazel flags, added to every build -----
 replace("build-system/Make/Make.py",
         "                '--features=swift.split_derived_files_generation',\n            ]\n\n        return combined_arguments\n",
-        "                '--features=swift.split_derived_files_generation',\n            ]\n\n        combined_arguments += ['--//Telegram:disableExtensions', '--define=apple.entitlements_validation=skip']\n        return combined_arguments\n")
+        "                '--features=swift.split_derived_files_generation',\n            ]\n\n        combined_arguments += ['--//Telegram:disableExtensions', '--define=apple.entitlements_validation=skip', '--ios_signing_cert_name=-']\n        return combined_arguments\n")
 
 # ---- a stand-in provisioning profile for the app (rules_apple wants one for a device build; AltStore signs again) ---
 replace("build-system/Make/Make.py",
