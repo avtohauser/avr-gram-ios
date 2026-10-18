@@ -89,6 +89,59 @@ if (src / plisttool).exists():
             "    self._validation_mode = self.options.get('validation_mode', 'error')",
             "    self._validation_mode = 'skip'  # avrgram: unsigned build, AltStore signs it")
 
+# ---- avrgram's own Swift files (copied as they are) -------------------------------------------------------
+import shutil
+
+files_root = here / "files"
+if files_root.exists():
+    for f in files_root.rglob("*"):
+        if f.is_file():
+            dest = src / f.relative_to(files_root)
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(f, dest)
+
+# ---- ghost mode ----------------------------------------------------------------------------------------
+# reading: the chat is read on this phone only
+replace("submodules/TelegramCore/Sources/State/SynchronizePeerReadState.swift",
+        "private func pushPeerReadState(network: Network, postbox: Postbox, stateManager: AccountStateManager, peerId: PeerId, readState: PeerReadState) -> Signal<PeerReadState, PeerReadStateValidationError> {\n",
+        "private func pushPeerReadState(network: Network, postbox: Postbox, stateManager: AccountStateManager, peerId: PeerId, readState: PeerReadState) -> Signal<PeerReadState, PeerReadStateValidationError> {\n    if AvrConfig.ghostRead {\n        return .single(readState)\n    }\n")
+# listening to voice and round messages is not reported either
+replace("submodules/TelegramCore/Sources/State/ManagedConsumePersonalMessagesActions.swift",
+        "private func synchronizeConsumeMessageContents(transaction: Transaction, postbox: Postbox, network: Network, stateManager: AccountStateManager, id: MessageId) -> Signal<Void, NoError> {\n",
+        "private func synchronizeConsumeMessageContents(transaction: Transaction, postbox: Postbox, network: Network, stateManager: AccountStateManager, id: MessageId) -> Signal<Void, NoError> {\n    if AvrConfig.ghostRead {\n        return postbox.transaction { transaction -> Void in\n            transaction.setPendingMessageAction(type: .consumeUnseenPersonalMessage, id: id, action: nil)\n        }\n    }\n")
+# typing
+replace("submodules/TelegramCore/Sources/State/ManagedLocalInputActivities.swift",
+        "private func requestActivity(postbox: Postbox, network: Network, accountPeerId: PeerId, peerId: PeerId, threadId: Int64?, activity: PeerInputActivity?) -> Signal<Void, NoError> {\n",
+        "private func requestActivity(postbox: Postbox, network: Network, accountPeerId: PeerId, peerId: PeerId, threadId: Int64?, activity: PeerInputActivity?) -> Signal<Void, NoError> {\n    if AvrConfig.ghostTyping {\n        return .complete()\n    }\n")
+# online and last seen: neither status is sent
+replace("submodules/TelegramCore/Sources/State/ManagedAccountPresence.swift",
+        "            request = self.network.request(Api.functions.account.updateStatus(offline: .boolFalse))\n",
+        "            request = AvrConfig.ghostOnline ? Signal<Api.Bool, MTRpcError>.single(.boolFalse) : self.network.request(Api.functions.account.updateStatus(offline: .boolFalse))\n")
+replace("submodules/TelegramCore/Sources/State/ManagedAccountPresence.swift",
+        "            request = self.network.request(Api.functions.account.updateStatus(offline: .boolTrue))\n",
+        "            request = AvrConfig.ghostOnline ? Signal<Api.Bool, MTRpcError>.single(.boolFalse) : self.network.request(Api.functions.account.updateStatus(offline: .boolTrue))\n")
+# stories
+replace("submodules/TelegramCore/Sources/State/ManagedSynchronizeViewStoriesOperations.swift",
+        "    return network.request(Api.functions.stories.readStories(peer: inputPeer, maxId: operation.storyId))\n",
+        "    if AvrConfig.ghostStories {\n        return .complete()\n    }\n    return network.request(Api.functions.stories.readStories(peer: inputPeer, maxId: operation.storyId))\n")
+replace("submodules/TelegramCore/Sources/TelegramEngine/Messages/Stories.swift",
+        "            return account.network.request(Api.functions.stories.incrementStoryViews(peer: inputPeer, id: [id]))\n",
+        "            if AvrConfig.ghostStories {\n                return .complete()\n            }\n            return account.network.request(Api.functions.stories.incrementStoryViews(peer: inputPeer, id: [id]))\n")
+
+# ---- the avrgram row in Settings ------------------------------------------------------------------------
+replace("submodules/SettingsUI/BUILD",
+        '        "//submodules/ItemListUI:ItemListUI",\n',
+        '        "//submodules/ItemListUI:ItemListUI",\n        "//submodules/PromptUI:PromptUI",\n')
+replace("submodules/TelegramUI/Components/PeerInfo/PeerInfoScreen/Sources/PeerInfoScreen.swift",
+        "    case chatFolders\n    case notificationsAndSounds\n",
+        "    case chatFolders\n    case avrgram\n    case notificationsAndSounds\n")
+replace("submodules/TelegramUI/Components/PeerInfo/PeerInfoScreen/Sources/PeerInfoScreenSettingsActions.swift",
+        "        case .notificationsAndSounds:\n            if let settings = self.data?.globalSettings {\n",
+        "        case .avrgram:\n            push(avrSettingsController(context: self.context))\n        case .notificationsAndSounds:\n            if let settings = self.data?.globalSettings {\n")
+replace("submodules/TelegramUI/Components/PeerInfo/PeerInfoScreen/Sources/PeerInfoSettingsItems.swift",
+        "    items[.advanced]!.append(PeerInfoScreenDisclosureItem(id: 0, label: notificationsWarning",
+        "    items[.advanced]!.append(PeerInfoScreenDisclosureItem(id: 90, text: \"avrgram\", icon: PresentationResourcesSettings.appearance, action: {\n        interaction.openSettings(.avrgram)\n    }))\n    items[.advanced]!.append(PeerInfoScreenDisclosureItem(id: 0, label: notificationsWarning")
+
 # ---- later waves add more here (theme, ghost mode, kept deleted messages ...) --------------------------
 for extra in sorted((here / "features").glob("*.py")) if (here / "features").exists() else []:
     exec(compile(extra.read_text(encoding="utf-8"), str(extra), "exec"), {"src": src, "read": read, "write": write, "replace": replace, "failed": failed})
