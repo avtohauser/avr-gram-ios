@@ -82,9 +82,8 @@ jobs:
       - name: Collect the IPA
         run: |
           mkdir -p out
-          find telegram -name "*.ipa" -not -path "*/node_modules/*" | head -5
-          IPA=$(find telegram -name "Telegram.ipa" | head -1)
-          cp "$IPA" out/avrgram-unsigned.ipa
+          cp -L telegram/bazel-bin/Telegram/Telegram.ipa out/avrgram-unsigned.ipa
+          unzip -l out/avrgram-unsigned.ipa | sed -n 1,12p
           ls -l out
 
       - uses: actions/upload-artifact@v4
